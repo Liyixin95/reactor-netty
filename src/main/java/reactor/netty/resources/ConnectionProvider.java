@@ -212,6 +212,12 @@ public interface ConnectionProvider extends Disposable {
 	default void disposeWhen(@NonNull SocketAddress address) {
 	}
 
+	/**
+	 * Dispose this ConnectionProvider.
+	 * This method is NOT blocking. It is implemented as fire-and-forget.
+	 * Use {@link #disposeLater()} when you need to observe for the final
+	 * status of the operation.
+	 */
 	@Override
 	default void dispose() {
 		//noop default
@@ -219,12 +225,13 @@ public interface ConnectionProvider extends Disposable {
 	}
 
 	/**
-	 * Returns a Mono that triggers the disposal of underlying resources when subscribed to.
+	 * Returns a Mono that triggers the disposal of the ConnectionProvider when subscribed to.
 	 *
-	 * @return a Mono representing the completion of resources disposal.
+	 * @return a Mono representing the completion of the ConnectionProvider disposal.
 	 **/
 	default Mono<Void> disposeLater() {
-		return Mono.empty(); //noop default
+		//noop default
+		return Mono.empty();
 	}
 
 	/**
