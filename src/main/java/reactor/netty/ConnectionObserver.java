@@ -72,6 +72,44 @@ public interface ConnectionObserver {
 	void onStateChange(Connection connection, State newState);
 
 	/**
+	 * Invoked when a connection has been established and is available
+	 *
+	 * @param connection the connection reference
+	 */
+	default void onConnected(Connection connection) {}
+
+	/**
+	 * Invoked when a connection is bound to a channelOperation and ready for
+	 * user interaction
+	 *
+	 * @param connection the connection reference
+	 */
+	default void onConfigured(Connection connection) {}
+
+	/**
+	 * Invoked when a connection has been reused / acquired
+	 * (keep-alive or pooling)
+	 *
+	 * @param connection the connection reference
+	 */
+	default void onAcquired(Connection connection) {}
+
+	/**
+	 * Invoked when a connection has been released but not fully closed
+	 * (keep-alive or pooling)
+	 *
+	 * @param connection the connection reference
+	 */
+	default void onReleased(Connection connection) {}
+
+	/**
+	 * Invoked when a connection is being fully closed
+	 *
+	 * @param connection the connection reference
+	 */
+	default void onDisconnecting(Connection connection) {}
+
+	/**
 	 * Chain together another {@link ConnectionObserver}
 	 *
 	 * @param other the next {@link ConnectionObserver}
