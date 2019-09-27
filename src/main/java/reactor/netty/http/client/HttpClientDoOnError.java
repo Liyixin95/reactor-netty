@@ -164,7 +164,7 @@ final class HttpClientDoOnError extends HttpClientOperator {
 		}
 	}
 
-	static final class OnErrorTcpClient extends TcpClient implements ConnectionObserver {
+	static final class OnErrorTcpClient extends TcpClient implements HttpClientObserver {
 
 		final TcpClient                                                 sourceTcp;
 		final BiConsumer<? super HttpClientRequest, ? super Throwable>  onRequestError;
@@ -179,14 +179,18 @@ final class HttpClientDoOnError extends HttpClientOperator {
 		}
 
 		@Override
+		public void onResponseIncomplete(Connection connection) {
+			HttpClientOperations ops = connection.as(HttpClientOperations.class);
+			if (ops != null && ops.responseState != null && onResponseError != null ) {
+				onResponseError.accept(ops, new PrematureCloseException("Connection prematurely closed DURING response"));
+			}
+		}
+
+		@Override
 		public void onStateChange(Connection connection,
 				ConnectionObserver.State newState) {
-			HttpClientOperations ops = connection.as(HttpClientOperations.class);
-			if (ops == null) {
-				return;
-			}
-			if (onResponseError != null && newState == HttpClientState.RESPONSE_INCOMPLETE && ops.responseState != null) {
-				onResponseError.accept(ops, new PrematureCloseException("Connection prematurely closed DURING response"));
+			if (newState == HttpClientState.RESPONSE_INCOMPLETE ) {
+				onResponseIncomplete(connection);
 			}
 		}
 

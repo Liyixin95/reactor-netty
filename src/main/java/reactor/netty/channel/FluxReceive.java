@@ -45,7 +45,7 @@ import static reactor.netty.ReactorNetty.format;
 final class FluxReceive extends Flux<Object> implements Subscription, Disposable {
 
 	final Channel           channel;
-	final ChannelOperations<?, ?> parent;
+	final ChannelOperations<?, ?, ?> parent;
 	final EventLoop         eventLoop;
 
 	CoreSubscriber<? super Object> receiver;
@@ -62,7 +62,7 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 	final static AtomicIntegerFieldUpdater<FluxReceive> WIP = AtomicIntegerFieldUpdater.newUpdater
 			(FluxReceive.class, "wip");
 
-	FluxReceive(ChannelOperations<?, ?> parent) {
+	FluxReceive(ChannelOperations<?, ?, ?> parent) {
 		this.parent = parent;
 		this.channel = parent.channel();
 		this.eventLoop = channel.eventLoop();

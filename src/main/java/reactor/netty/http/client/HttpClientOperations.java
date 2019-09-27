@@ -87,7 +87,7 @@ import static reactor.netty.ReactorNetty.format;
  * @author Stephane Maldini
  * @author Simon Baslé
  */
-class HttpClientOperations extends HttpOperations<NettyInbound, NettyOutbound>
+class HttpClientOperations extends HttpOperations<NettyInbound, NettyOutbound, HttpClientObserver>
 		implements HttpClientResponse, HttpClientRequest {
 
 	final boolean               isSecure;
@@ -117,7 +117,7 @@ class HttpClientOperations extends HttpOperations<NettyInbound, NettyOutbound>
 		this.cookieDecoder = replaced.cookieDecoder;
 	}
 
-	HttpClientOperations(Connection c, ConnectionObserver listener, ClientCookieEncoder encoder, ClientCookieDecoder decoder) {
+	HttpClientOperations(Connection c, HttpClientObserver listener, ClientCookieEncoder encoder, ClientCookieDecoder decoder) {
 		super(c, listener);
 		this.isSecure = c.channel()
 		                 .pipeline()
@@ -244,10 +244,10 @@ class HttpClientOperations extends HttpOperations<NettyInbound, NettyOutbound>
 	@Override
 	protected void onInboundClose() {
 		if (isInboundCancelled() || isInboundDisposed()) {
-			listener().onStateChange(this, ConnectionObserver.State.DISCONNECTING);
+			listener().onDisconnecting(this);
 			return;
 		}
-		listener().onStateChange(this, HttpClientState.RESPONSE_INCOMPLETE);
+		listener().onResponseIncomplete(this);
 		if (responseState == null) {
 			if (markSentBody()) {
 				listener().onUncaughtException(this, new PrematureCloseException("Connection has been closed BEFORE response, while sending request body"));
@@ -300,7 +300,7 @@ class HttpClientOperations extends HttpOperations<NettyInbound, NettyOutbound>
 
 	@Override
 	public boolean isWebsocket() {
-		ChannelOperations<?, ?> ops = get(channel());
+		ChannelOperations<?, ?, ?> ops = get(channel());
 		return ops != null && ops.getClass().equals(WebsocketClientOperations.class);
 	}
 
@@ -457,7 +457,7 @@ class HttpClientOperations extends HttpOperations<NettyInbound, NettyOutbound>
 		else if (markSentBody()) {
 			channel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
 		}
-		listener().onStateChange(this, HttpClientState.REQUEST_SENT);
+		listener().onRequestSent(this);
 		channel().read();
 	}
 
@@ -519,7 +519,7 @@ class HttpClientOperations extends HttpOperations<NettyInbound, NettyOutbound>
 
 			if (notRedirected(response)) {
 				try {
-					listener().onStateChange(this, HttpClientState.RESPONSE_RECEIVED);
+					listener().onResponseReceived(this);
 				}
 				catch (Exception e) {
 					onInboundError(e);

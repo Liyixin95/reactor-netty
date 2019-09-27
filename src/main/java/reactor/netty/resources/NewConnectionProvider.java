@@ -31,6 +31,7 @@ import reactor.core.publisher.MonoSink;
 import reactor.netty.ChannelBindException;
 import reactor.netty.Connection;
 import reactor.netty.ConnectionObserver;
+import reactor.netty.SimpleConnectionObserver;
 import reactor.netty.channel.BootstrapHandlers;
 import reactor.netty.channel.ChannelOperations;
 import reactor.util.Logger;
@@ -174,14 +175,13 @@ final class NewConnectionProvider implements ConnectionProvider {
 	}
 
 
-	static final class NewConnectionObserver implements ConnectionObserver {
+	static final class NewConnectionObserver extends SimpleConnectionObserver {
 
 		final MonoSink<Connection> sink;
-		final ConnectionObserver   obs;
 
 		NewConnectionObserver(MonoSink<Connection> sink, ConnectionObserver obs) {
+			super(obs);
 			this.sink = sink;
-			this.obs = obs;
 		}
 
 		@Override
@@ -190,19 +190,62 @@ final class NewConnectionProvider implements ConnectionProvider {
 		}
 
 		@Override
-		public void onStateChange(Connection connection, State newState) {
+		public void onConnected(Connection connection) {
 			if (log.isDebugEnabled()) {
-				log.debug(format(connection.channel(), "onStateChange({}, {})"), newState, connection);
+				log.debug(format(connection.channel(), "onConnected([connected], {})"), connection);
 			}
+			super.onConnected(connection);
+		}
+
+		@Override
+		public void onAcquired(Connection connection) {
+			if (log.isDebugEnabled()) {
+				log.debug(format(connection.channel(), "onAcquired([acquired], {})"), connection);
+			}
+			super.onAcquired(connection);
+		}
+
+		@Override
+		public void onReleased(Connection connection) {
+			if (log.isDebugEnabled()) {
+				log.debug(format(connection.channel(), "onReleased([released], {})"), connection);
+			}
+			super.onReleased(connection);
+		}
+
+		@Override
+		public void onConfigured(Connection connection) {
+			if (log.isDebugEnabled()) {
+				log.debug(format(connection.channel(), "onConfigured([configured], {})"), connection);
+			}
+			sink.success(connection);
+			super.onConfigured(connection);
+		}
+
+		@Override
+		public void onDisconnecting(Connection connection) {
+			if (log.isDebugEnabled()) {
+				log.debug(format(connection.channel(), "onDisconnecting([disconnecting], {})"), connection);
+			}
+			if (connection.channel().isActive()) {
+				connection.channel().close();
+			}
+			super.onDisconnecting(connection);
+		}
+
+		@Override
+		public void onStateChange(Connection connection, State newState) {
 			if (newState == State.CONFIGURED) {
-				sink.success(connection);
+				onConfigured(connection);
 			}
-			else if (newState == State.DISCONNECTING && connection.channel()
-			                                                      .isActive()) {
-				connection.channel()
-				          .close();
+			else if (newState == State.DISCONNECTING) {
+				onDisconnecting(connection);
+			} else {
+				if (log.isDebugEnabled()) {
+					log.debug(format(connection.channel(), "onStateChange({}, {})"), newState, connection);
+				}
+				super.onStateChange(connection,newState);
 			}
-			obs.onStateChange(connection, newState);
 		}
 
 		@Override

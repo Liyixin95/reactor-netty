@@ -36,7 +36,7 @@ import static reactor.netty.ReactorNetty.format;
 /**
  * @author Stephane Maldini
  */
-final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
+final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound, ConnectionObserver>
 		implements UdpInbound, UdpOutbound {
 
 	final DatagramChannel  datagramChannel;

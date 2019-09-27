@@ -57,7 +57,7 @@ import static reactor.netty.ReactorNetty.format;
  * @author Stephane Maldini
  * @since 0.6
  */
-public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends NettyOutbound>
+public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends NettyOutbound, OBSERVER extends ConnectionObserver>
 		implements NettyInbound, NettyOutbound, Connection, CoreSubscriber<Void> {
 
 	/**
@@ -69,7 +69,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	 * @param opsFactory the operations factory to invoke on channel active
 	 * @param listener the listener to forward connection events to
 	 */
-	public static void addReactiveBridge(Channel ch, OnSetup opsFactory, ConnectionObserver listener) {
+	public static <OBSERVER extends ConnectionObserver> void addReactiveBridge(Channel ch, OnSetup<OBSERVER> opsFactory, OBSERVER listener) {
 		ch.pipeline()
 		  .addLast(NettyPipeline.ReactiveBridge, new ChannelOperationsHandler(opsFactory, listener));
 	}
@@ -83,20 +83,20 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	 */
 	@Nullable
 	@SuppressWarnings("unchecked")
-	public static ChannelOperations<?, ?> get(Channel ch) {
+	public static ChannelOperations<?, ?, ?> get(Channel ch) {
 		return Connection.from(ch)
 		                 .as(ChannelOperations.class);
 	}
 
 	final Connection          connection;
 	final FluxReceive         inbound;
-	final ConnectionObserver  listener;
+	final OBSERVER  listener;
 	final MonoProcessor<Void> onTerminate;
 
 	@SuppressWarnings("unchecked")
 	volatile Subscription outboundSubscription;
 
-	protected ChannelOperations(ChannelOperations<INBOUND, OUTBOUND> replaced) {
+	protected ChannelOperations(ChannelOperations<INBOUND, OUTBOUND, OBSERVER> replaced) {
 		this.connection = replaced.connection;
 		this.listener = replaced.listener;
 		this.onTerminate = replaced.onTerminate;
@@ -109,7 +109,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	 * @param connection the new {@link Connection} connection
 	 * @param listener the events callback
 	 */
-	public ChannelOperations(Connection connection, ConnectionObserver listener) {
+	public ChannelOperations(Connection connection, OBSERVER listener) {
 		this.connection = Objects.requireNonNull(connection, "connection");
 		this.listener = Objects.requireNonNull(listener, "listener");
 		this.onTerminate = MonoProcessor.create();
@@ -149,7 +149,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	}
 
 	@Override
-	public ChannelOperations<INBOUND, OUTBOUND> withConnection(Consumer<? super Connection> withConnection) {
+	public ChannelOperations<INBOUND, OUTBOUND, OBSERVER> withConnection(Consumer<? super Connection> withConnection) {
 		withConnection.accept(this);
 		return this;
 	}
@@ -304,7 +304,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	 * @return the available parent {@link ConnectionObserver}for user-facing lifecycle
 	 * handling
 	 */
-	public final ConnectionObserver listener() {
+	public final OBSERVER listener() {
 		return listener;
 	}
 
@@ -411,7 +411,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 			// when there is no response state
 			onInboundComplete();
 			onTerminate.onComplete();
-			listener.onStateChange(this, ConnectionObserver.State.DISCONNECTING);
+			listener.onDisconnecting(connection);
 		}
 	}
 
@@ -457,7 +457,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	 * A {@link ChannelOperations} factory
 	 */
 	@FunctionalInterface
-	public interface OnSetup {
+	public interface OnSetup<OBSERVER> {
 
 		/**
 		 * Return an empty, no-op factory
@@ -479,7 +479,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 		 * @return the new {@link ChannelOperations}
 		 */
 		@Nullable
-		ChannelOperations<?, ?> create(Connection c, ConnectionObserver listener, @Nullable Object msg);
+		ChannelOperations<?, ?, ?> create(Connection c, OBSERVER listener, @Nullable Object msg);
 
 	}
 

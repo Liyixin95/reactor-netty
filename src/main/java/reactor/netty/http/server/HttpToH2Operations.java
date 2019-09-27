@@ -35,53 +35,52 @@ import static reactor.netty.ReactorNetty.format;
 public class HttpToH2Operations extends HttpServerOperations {
 
 
-	final Http2Headers http2Headers;
+    final Http2Headers http2Headers;
 
-	HttpToH2Operations(Connection c,
-			ConnectionObserver listener,
-			HttpRequest request,
-			Http2Headers headers,
-			ConnectionInfo connectionInfo,
-			ServerCookieEncoder encoder,
-			ServerCookieDecoder decoder) {
-		super(c, listener, null, request, connectionInfo, encoder, decoder);
+    HttpToH2Operations(Connection c,
+                       HttpServerObserver listener,
+                       HttpRequest request,
+                       Http2Headers headers,
+                       ConnectionInfo connectionInfo,
+                       ServerCookieEncoder encoder,
+                       ServerCookieDecoder decoder) {
+        super(c, listener, null, request, connectionInfo, encoder, decoder);
 
-		this.http2Headers = headers;
-	}
+        this.http2Headers = headers;
+    }
 
-	@Override
-	protected void onInboundNext(ChannelHandlerContext ctx, Object msg) {
-		if (msg instanceof Http2Frame) {
-			if (msg instanceof Http2DataFrame) {
-				Http2DataFrame data = (Http2DataFrame) msg;
-				super.onInboundNext(ctx, data);
-				if (data.isEndStream()) {
-					onInboundComplete();
-				}
-				return;
-			}
+    @Override
+    protected void onInboundNext(ChannelHandlerContext ctx, Object msg) {
+        if (msg instanceof Http2Frame) {
+            if (msg instanceof Http2DataFrame) {
+                Http2DataFrame data = (Http2DataFrame) msg;
+                super.onInboundNext(ctx, data);
+                if (data.isEndStream()) {
+                    onInboundComplete();
+                }
+                return;
+            }
 
-			if(msg instanceof Http2HeadersFrame) {
-				try {
-					listener().onStateChange(this, HttpServerState.REQUEST_RECEIVED);
-				}
-				catch (Exception e) {
-					onInboundError(e);
-					ReferenceCountUtil.release(msg);
-					return;
-				}
-				if (((Http2HeadersFrame) msg).isEndStream()) {
-					super.onInboundNext(ctx, msg);
-				}
-				return;
-			}
+            if (msg instanceof Http2HeadersFrame) {
+                try {
+                    listener().onRequestReceived(this);
+                } catch (Exception e) {
+                    onInboundError(e);
+                    ReferenceCountUtil.release(msg);
+                    return;
+                }
+                if (((Http2HeadersFrame) msg).isEndStream()) {
+                    super.onInboundNext(ctx, msg);
+                }
+                return;
+            }
 
-			if (log.isDebugEnabled()){
-				log.debug(format(channel(), "Unused H2 frame " + msg.toString()));
-			}
-			return;
-		}
+            if (log.isDebugEnabled()) {
+                log.debug(format(channel(), "Unused H2 frame " + msg.toString()));
+            }
+            return;
+        }
 
-		super.onInboundNext(ctx, msg);
-	}
+        super.onInboundNext(ctx, msg);
+    }
 }

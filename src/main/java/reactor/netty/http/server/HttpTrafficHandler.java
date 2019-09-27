@@ -174,7 +174,7 @@ final class HttpTrafficHandler extends ChannelDuplexHandler
 						cookieEncoder,
 						cookieDecoder);
 				ops.bind();
-				listener.onStateChange(ops, ConnectionObserver.State.CONFIGURED);
+				listener.onConfigured(ops);
 
 				ctx.fireChannelRead(msg);
 				return;
@@ -315,7 +315,7 @@ final class HttpTrafficHandler extends ChannelDuplexHandler
 						cookieEncoder,
 						cookieDecoder);
 				ops.bind();
-				listener.onStateChange(ops, ConnectionObserver.State.CONFIGURED);
+				listener.onConfigured(ops);
 			}
 			ctx.fireChannelRead(pipelined.poll());
 		}

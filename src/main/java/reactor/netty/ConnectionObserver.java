@@ -60,7 +60,7 @@ public interface ConnectionObserver {
 	 * @param error the failing cause
 	 */
 	default void onUncaughtException(Connection connection, Throwable error) {
-		onStateChange(connection, State.DISCONNECTING);
+		onDisconnecting(connection);
 	}
 
 	/**

@@ -33,7 +33,7 @@ import static reactor.netty.ReactorNetty.format;
 /**
  * @author Stephane Maldini
  */
-final class HttpServerHandle extends HttpServerOperator implements ConnectionObserver,
+final class HttpServerHandle extends HttpServerOperator implements HttpServerObserver,
                                                                    Function<ServerBootstrap, ServerBootstrap> {
 
 	final BiFunction<? super HttpServerRequest, ? super
@@ -52,22 +52,26 @@ final class HttpServerHandle extends HttpServerOperator implements ConnectionObs
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
+	public void onRequestReceived(Connection connection) {
+		try {
+			if (log.isDebugEnabled()) {
+				log.debug(format(connection.channel(), "Handler is being applied: {}"), handler);
+			}
+			HttpServerOperations ops = (HttpServerOperations) connection;
+			Mono.fromDirect(handler.apply(ops, ops))
+					.subscribe(ops.disposeSubscriber());
+		}
+		catch (Throwable t) {
+			log.error(format(connection.channel(), ""), t);
+			connection.channel()
+					.close();
+		}
+	}
+
+	@Override
 	public void onStateChange(Connection connection, State newState) {
 		if (newState == HttpServerState.REQUEST_RECEIVED) {
-			try {
-				if (log.isDebugEnabled()) {
-					log.debug(format(connection.channel(), "Handler is being applied: {}"), handler);
-				}
-				HttpServerOperations ops = (HttpServerOperations) connection;
-				Mono.fromDirect(handler.apply(ops, ops))
-				    .subscribe(ops.disposeSubscriber());
-			}
-			catch (Throwable t) {
-				log.error(format(connection.channel(), ""), t);
-				connection.channel()
-				          .close();
-			}
+			onRequestReceived(connection);
 		}
 	}
 

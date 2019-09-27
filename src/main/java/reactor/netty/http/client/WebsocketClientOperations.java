@@ -115,7 +115,7 @@ final class WebsocketClientOperations extends HttpClientOperations
 
 				try {
 					handshaker.finishHandshake(channel(), response);
-					listener().onStateChange(this, HttpClientState.RESPONSE_RECEIVED);
+					listener().onResponseReceived(this);
 				}
 				catch (Exception e) {
 					onInboundError(e);

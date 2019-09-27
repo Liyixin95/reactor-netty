@@ -123,7 +123,7 @@ final class HttpClientFinalizer extends HttpClient implements HttpClient.Request
 		});
 	}
 
-	static ByteBufFlux content(TcpClient cachedConfiguration, Function<ChannelOperations<?, ?>, Publisher<ByteBuf>> contentReceiver) {
+	static ByteBufFlux content(TcpClient cachedConfiguration, Function<ChannelOperations<?, ?, ?>, Publisher<ByteBuf>> contentReceiver) {
 		Bootstrap b;
 		try {
 			b = cachedConfiguration.configure();
@@ -138,7 +138,7 @@ final class HttpClientFinalizer extends HttpClient implements HttpClient.Request
 		                                             .getOrDefault(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
 
 		@SuppressWarnings("unchecked")
-		Mono<ChannelOperations<?, ?>> connector = (Mono<ChannelOperations<?, ?>>) cachedConfiguration.connect(b);
+		Mono<ChannelOperations<?, ?, ?>> connector = (Mono<ChannelOperations<?, ?, ?>>) cachedConfiguration.connect(b);
 
 		return ByteBufFlux.fromInbound(connector.flatMapMany(contentReceiver), alloc);
 	}
@@ -155,6 +155,6 @@ final class HttpClientFinalizer extends HttpClient implements HttpClient.Request
 		}
 	}
 
-	static final Function<ChannelOperations<?, ?>, Publisher<ByteBuf>> contentReceiver = ChannelOperations::receive;
+	static final Function<ChannelOperations<?, ?, ?>, Publisher<ByteBuf>> contentReceiver = ChannelOperations::receive;
 }
 

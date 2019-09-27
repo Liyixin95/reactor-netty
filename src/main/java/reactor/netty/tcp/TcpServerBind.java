@@ -30,10 +30,7 @@ import io.netty.channel.ChannelOption;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoSink;
-import reactor.netty.ChannelBindException;
-import reactor.netty.Connection;
-import reactor.netty.ConnectionObserver;
-import reactor.netty.DisposableServer;
+import reactor.netty.*;
 import reactor.netty.channel.AbortedException;
 import reactor.netty.channel.BootstrapHandlers;
 import reactor.netty.channel.ChannelOperations;
@@ -187,17 +184,15 @@ final class TcpServerBind extends TcpServer {
 					log.debug(format(f.channel(), "Bound new server"));
 				}
 				sink.success(this);
-				selectorObserver.onStateChange(this, ConnectionObserver.State.CONNECTED);
+				selectorObserver.onConnected(this);
 			}
 		}
 	}
 
-	final static class ChildObserver implements ConnectionObserver {
-
-		final ConnectionObserver childObs;
+	final static class ChildObserver extends SimpleConnectionObserver {
 
 		ChildObserver(ConnectionObserver childObs) {
-			this.childObs = childObs;
+			super(childObs);
 		}
 
 		@Override
@@ -215,16 +210,21 @@ final class TcpServerBind extends TcpServer {
 		}
 
 		@Override
+		public void onDisconnecting(Connection connection) {
+			if (connection.channel()
+					.isActive() && !connection.isPersistent()) {
+				connection.dispose();
+			}
+			super.onDisconnecting(connection);
+		}
+
+		@Override
 		public void onStateChange(Connection connection, State newState) {
 			if (newState == State.DISCONNECTING) {
-				if (connection.channel()
-				              .isActive() && !connection.isPersistent()) {
-					connection.dispose();
-				}
+				onDisconnecting(connection);
+			} else {
+				super.onStateChange(connection, newState);
 			}
-
-			childObs.onStateChange(connection, newState);
-
 		}
 	}
 }

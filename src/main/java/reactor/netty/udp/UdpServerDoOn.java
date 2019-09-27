@@ -61,13 +61,25 @@ final class UdpServerDoOn extends UdpServerOperator implements ConnectionObserve
 	}
 
 	@Override
-	public void onStateChange(Connection connection, State newState) {
-		if (onBound != null && newState == State.CONFIGURED) {
+	public void onConfigured(Connection connection) {
+		if(onBound != null) {
 			onBound.accept(connection);
-			return;
 		}
-		if (onUnbound != null && newState == State.DISCONNECTING) {
+	}
+
+	@Override
+	public void onDisconnecting(Connection connection) {
+		if(onUnbound != null) {
 			connection.onDispose(() -> onUnbound.accept(connection));
+		}
+	}
+
+	@Override
+	public void onStateChange(Connection connection, State newState) {
+		if (newState == State.CONFIGURED) {
+			onConfigured(connection);
+		} else if(newState == State.DISCONNECTING) {
+			onDisconnecting(connection);
 		}
 	}
 }

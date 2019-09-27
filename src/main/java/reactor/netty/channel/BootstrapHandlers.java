@@ -80,7 +80,7 @@ public abstract class BootstrapHandlers {
 	 * @param opsFactory an operation factory
 	 * @param childListener a connection observer
 	 */
-	public static void finalizeHandler(ServerBootstrap b, ChannelOperations.OnSetup
+	public static <OBSERVER extends ConnectionObserver> void finalizeHandler(ServerBootstrap b, ChannelOperations.OnSetup<OBSERVER>
 			opsFactory, ConnectionObserver childListener) {
 		Objects.requireNonNull(b, "bootstrap");
 		Objects.requireNonNull(opsFactory, "ops");
@@ -104,8 +104,8 @@ public abstract class BootstrapHandlers {
 	 * @param listener a connection observer
 	 *
 	 */
-	public static void finalizeHandler(Bootstrap b,
-			ChannelOperations.OnSetup opsFactory,
+	public static <OBSERVER extends ConnectionObserver> void finalizeHandler(Bootstrap b,
+			ChannelOperations.OnSetup<OBSERVER> opsFactory,
 			ConnectionObserver listener) {
 		Objects.requireNonNull(b, "bootstrap");
 		Objects.requireNonNull(listener, "listener");
@@ -203,8 +203,8 @@ public abstract class BootstrapHandlers {
 	 * @param b the bootstrap to scan
 	 * @param opsFactory a new {@link ChannelOperations.OnSetup} factory
 	 */
-	public static void channelOperationFactory(AbstractBootstrap<?, ?> b,
-			ChannelOperations.OnSetup opsFactory) {
+	public static <OBSERVER extends ConnectionObserver> void channelOperationFactory(AbstractBootstrap<?, ?> b,
+			ChannelOperations.OnSetup<OBSERVER> opsFactory) {
 		Objects.requireNonNull(b, "bootstrap");
 		Objects.requireNonNull(opsFactory, "opsFactory");
 		b.option(OPS_OPTION, opsFactory);

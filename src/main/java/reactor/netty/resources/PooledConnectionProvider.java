@@ -47,10 +47,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoProcessor;
 import reactor.core.publisher.MonoSink;
 import reactor.core.publisher.Operators;
-import reactor.netty.Connection;
-import reactor.netty.ConnectionObserver;
-import reactor.netty.FutureMono;
-import reactor.netty.Metrics;
+import reactor.netty.*;
 import reactor.netty.channel.BootstrapHandlers;
 import reactor.netty.channel.ChannelOperations;
 import reactor.pool.InstrumentedPool;
@@ -317,6 +314,7 @@ final class PooledConnectionProvider implements ConnectionProvider {
 		}
 
 		@Override
+		//TODO modify this method
 		public void onStateChange(Connection connection, State newState) {
 			pendingQueue.add(new Pending(connection, null, newState));
 		}
@@ -417,7 +415,7 @@ final class PooledConnectionProvider implements ConnectionProvider {
 				                             t);
 				                     }
 				                     onTerminate.onComplete();
-				                     obs.onStateChange(connection, State.RELEASED);
+				                     obs.onReleased(connection);
 				                 },
 				                 () -> {
 				                     if (log.isDebugEnabled()) {
@@ -427,7 +425,7 @@ final class PooledConnectionProvider implements ConnectionProvider {
 				                             pool.metrics().idleSize());
 				                     }
 				                     onTerminate.onComplete();
-				                     obs.onStateChange(connection, State.RELEASED);
+									 obs.onReleased(connection);
 				                 });
 				return;
 			}
@@ -441,12 +439,11 @@ final class PooledConnectionProvider implements ConnectionProvider {
 		}
 	}
 
-	final static class DisposableAcquire
-			implements ConnectionObserver, Runnable, CoreSubscriber<PooledRef<PooledConnection>>, Disposable {
+	final static class DisposableAcquire extends SimpleConnectionObserver
+			implements Runnable, CoreSubscriber<PooledRef<PooledConnection>>, Disposable {
 
 		final MonoSink<Connection>               sink;
 		final InstrumentedPool<PooledConnection> pool;
-		final ConnectionObserver                 obs;
 		final ChannelOperations.OnSetup          opsFactory;
 		final long                               acquireTimeout;
 
@@ -458,9 +455,9 @@ final class PooledConnectionProvider implements ConnectionProvider {
 				ConnectionObserver obs,
 				ChannelOperations.OnSetup opsFactory,
 				long acquireTimeout) {
+			super(obs);
 			this.pool = pool;
 			this.sink = sink;
-			this.obs = obs;
 			this.opsFactory = opsFactory;
 			this.acquireTimeout = acquireTimeout;
 		}
@@ -519,11 +516,19 @@ final class PooledConnectionProvider implements ConnectionProvider {
 		}
 
 		@Override
+		public void onConfigured(Connection connection) {
+			sink.success(connection);
+			super.onConfigured(connection);
+		}
+
+		@Override
 		public void onStateChange(Connection connection, State newState) {
 			if (newState == State.CONFIGURED) {
-				sink.success(connection);
+				onConfigured(connection);
+			} else {
+				obs.onStateChange(connection, newState);
 			}
-			obs.onStateChange(connection, newState);
+
 		}
 
 		@Override
@@ -556,12 +561,12 @@ final class PooledConnectionProvider implements ConnectionProvider {
 							pool.metrics().acquiredSize(),
 							pool.metrics().idleSize());
 				}
-				obs.onStateChange(pooledConnection, State.ACQUIRED);
+				obs.onAcquired(pooledConnection);
 
 				ChannelOperations<?, ?> ops = opsFactory.create(pooledConnection, pooledConnection, null);
 				if (ops != null) {
 					ops.bind();
-					obs.onStateChange(ops, State.CONFIGURED);
+					obs.onConfigured(ops);
 					sink.success(ops);
 				}
 				else {

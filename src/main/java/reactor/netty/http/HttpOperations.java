@@ -58,8 +58,8 @@ import reactor.util.annotation.Nullable;
  *
  * @author Stephane Maldini
  */
-public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND extends NettyOutbound>
-		extends ChannelOperations<INBOUND, OUTBOUND> implements HttpInfos {
+public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND extends NettyOutbound, OBSERVER extends ConnectionObserver>
+		extends ChannelOperations<INBOUND, OUTBOUND, OBSERVER> implements HttpInfos {
 
 	volatile int statusAndHeadersSent = 0;
 
@@ -67,12 +67,12 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	static final int HEADERS_SENT = 1;
 	static final int BODY_SENT    = 2;
 
-	protected HttpOperations(HttpOperations<INBOUND, OUTBOUND> replaced) {
+	protected HttpOperations(HttpOperations<INBOUND, OUTBOUND, OBSERVER> replaced) {
 		super(replaced);
 		this.statusAndHeadersSent = replaced.statusAndHeadersSent;
 	}
 
-	protected HttpOperations(Connection connection, ConnectionObserver listener) {
+	protected HttpOperations(Connection connection, OBSERVER listener) {
 		super(connection, listener);
 		//reset channel to manual read if re-used
 		connection.channel()
@@ -202,7 +202,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	}
 
 	@Override
-	public HttpOperations<INBOUND, OUTBOUND> addHandler(String name, ChannelHandler handler) {
+	public HttpOperations<INBOUND, OUTBOUND, OBSERVER> addHandler(String name, ChannelHandler handler) {
 		super.addHandler(name, handler);
 
 		if(channel().pipeline().context(handler) == null){
@@ -297,10 +297,10 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	protected static final class PostHeadersNettyOutbound implements NettyOutbound, Consumer<Throwable>, Runnable {
 
 		final Mono<Void> source;
-		final HttpOperations<?, ?> parent;
+		final HttpOperations<?, ?, ?> parent;
 		final ByteBuf msg;
 
-		public PostHeadersNettyOutbound(Mono<Void> source, HttpOperations<?, ?> parent, @Nullable ByteBuf msg) {
+		public PostHeadersNettyOutbound(Mono<Void> source, HttpOperations<?, ?, ?> parent, @Nullable ByteBuf msg) {
 			this.msg = msg;
 			if (msg != null) {
 				this.source = source.doOnError(this)

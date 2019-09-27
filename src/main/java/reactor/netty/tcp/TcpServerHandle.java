@@ -52,22 +52,26 @@ final class TcpServerHandle extends TcpServerOperator implements ConnectionObser
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
+	public void onConfigured(Connection connection) {
+		try {
+			if (log.isDebugEnabled()) {
+				log.debug(format(connection.channel(), "Handler is being applied: {}"),
+						handler);
+			}
+			Mono.fromDirect(handler.apply(connection.inbound(), connection.outbound()))
+					.subscribe(connection.disposeSubscriber());
+		}
+		catch (Throwable t) {
+			log.error(format(connection.channel(), ""), t);
+			connection.channel()
+					.close();
+		}
+	}
+
+	@Override
 	public void onStateChange(Connection connection, State newState) {
 		if (newState == State.CONFIGURED) {
-			try {
-				if (log.isDebugEnabled()) {
-					log.debug(format(connection.channel(), "Handler is being applied: {}"),
-							handler);
-				}
-				Mono.fromDirect(handler.apply(connection.inbound(), connection.outbound()))
-				    .subscribe(connection.disposeSubscriber());
-			}
-			catch (Throwable t) {
-				log.error(format(connection.channel(), ""), t);
-				connection.channel()
-				          .close();
-			}
+			onConfigured(connection);
 		}
 	}
 }

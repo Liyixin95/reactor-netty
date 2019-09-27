@@ -29,7 +29,7 @@ import reactor.netty.tcp.TcpClient;
 /**
  * @author Stephane Maldini
  */
-final class HttpClientDoOn extends HttpClientOperator implements ConnectionObserver,
+final class HttpClientDoOn extends HttpClientOperator implements HttpClientObserver,
                                                            Function<Bootstrap, Bootstrap> {
 
 	final BiConsumer<? super HttpClientRequest, ? super Connection>  onRequest;
@@ -57,25 +57,42 @@ final class HttpClientDoOn extends HttpClientOperator implements ConnectionObser
 	}
 
 	@Override
-	public void onStateChange(Connection connection, State newState) {
-		if (onRequest != null && newState == State.CONFIGURED) {
-			onRequest.accept(connection.as(HttpClientOperations.class), connection);
-			return;
+	public void onRequestSent(Connection connection) {
+		if(afterRequest != null) {
+			afterRequest.accept(connection.as(HttpClientOperations.class), connection);
 		}
-		if (afterResponse != null && newState == HttpClientState.RESPONSE_RECEIVED) {
+	}
+
+	@Override
+	public void onResponseReceived(Connection connection) {
+		if(afterResponse != null) {
 			HttpClientOperations ops = connection.as(HttpClientOperations.class);
 			if (ops != null) {
 				ops.onTerminate().subscribe(null, null,
 						() -> afterResponse.accept(connection.as(HttpClientOperations.class), connection));
 			}
-			return;
 		}
-		if (afterRequest != null && newState == HttpClientState.REQUEST_SENT) {
-			afterRequest.accept(connection.as(HttpClientOperations.class), connection);
-			return;
-		}
-		if (onResponse != null && newState == HttpClientState.RESPONSE_RECEIVED) {
+
+		if(onResponse != null) {
 			onResponse.accept(connection.as(HttpClientOperations.class), connection);
+		}
+	}
+
+	@Override
+	public void onConfigured(Connection connection) {
+		if(onRequest != null) {
+			onRequest.accept(connection.as(HttpClientOperations.class), connection);
+		}
+	}
+
+	@Override
+	public void onStateChange(Connection connection, State newState) {
+		if (newState == State.CONFIGURED) {
+			onConfigured(connection);
+		} else if(newState == HttpClientState.RESPONSE_RECEIVED) {
+			onResponseReceived(connection);
+		} else if(newState == HttpClientState.REQUEST_SENT) {
+			onRequestSent(connection);
 		}
 	}
 

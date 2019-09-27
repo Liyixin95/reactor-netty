@@ -57,11 +57,11 @@ final class ChannelOperationsHandler extends ChannelInboundHandlerAdapter {
 	@Override
 	public void channelActive(ChannelHandlerContext ctx) {
 		Connection c = Connection.from(ctx.channel());
-		listener.onStateChange(c, ConnectionObserver.State.CONNECTED);
-		ChannelOperations<?, ?> ops = opsFactory.create(c, listener, null);
+		listener.onConnected(c);
+		ChannelOperations<?, ?, ?> ops = opsFactory.create(c, listener, null);
 		if (ops != null) {
 			ops.bind();
-			listener.onStateChange(ops, ConnectionObserver.State.CONFIGURED);
+			listener.onConfigured(ops);
 		}
 	}
 
@@ -69,12 +69,12 @@ final class ChannelOperationsHandler extends ChannelInboundHandlerAdapter {
 	final public void channelInactive(ChannelHandlerContext ctx) {
 		try {
 			Connection connection = Connection.from(ctx.channel());
-			ChannelOperations<?, ?> ops = connection.as(ChannelOperations.class);
+			ChannelOperations<?, ?, ?> ops = connection.as(ChannelOperations.class);
 			if (ops != null) {
 				ops.onInboundClose();
 			}
 			else {
-				listener.onStateChange(connection, ConnectionObserver.State.DISCONNECTING);
+				listener.onDisconnecting(connection);
 			}
 		}
 		catch (Throwable err) {
@@ -88,7 +88,7 @@ final class ChannelOperationsHandler extends ChannelInboundHandlerAdapter {
 			return;
 		}
 		try {
-			ChannelOperations<?, ?> ops = ChannelOperations.get(ctx.channel());
+			ChannelOperations<?, ?, ?> ops = ChannelOperations.get(ctx.channel());
 			if (ops != null) {
 				ops.onInboundNext(ctx, msg);
 			}
@@ -130,7 +130,7 @@ final class ChannelOperationsHandler extends ChannelInboundHandlerAdapter {
 	@Override
 	final public void exceptionCaught(ChannelHandlerContext ctx, Throwable err) {
 		Connection connection = Connection.from(ctx.channel());
-		ChannelOperations<?, ?> ops = connection.as(ChannelOperations.class);
+		ChannelOperations<?, ?, ?> ops = connection.as(ChannelOperations.class);
 		if (ops != null) {
 			ops.onInboundError(err);
 		}

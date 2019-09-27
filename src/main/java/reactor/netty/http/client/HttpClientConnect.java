@@ -140,7 +140,7 @@ final class HttpClientConnect extends HttpClient {
 			HttpClientConfiguration conf = HttpClientConfiguration.getAndClean(b);
 			ClientCookieEncoder cookieEncoder = conf.cookieEncoder;
 			ClientCookieDecoder cookieDecoder = conf.cookieDecoder;
-			BootstrapHandlers.channelOperationFactory(b,
+			BootstrapHandlers.<HttpClientObserver>channelOperationFactory(b,
 					(ch, c, msg) -> new HttpClientOperations(ch, c, cookieEncoder, cookieDecoder));
 
 			if (ssl != null) {
@@ -357,7 +357,7 @@ final class HttpClientConnect extends HttpClient {
 		}
 	}
 
-	final static class HttpObserver implements ConnectionObserver {
+	final static class HttpObserver implements HttpClientObserver {
 
 		final MonoSink<Connection> sink;
 		final HttpClientHandler handler;
@@ -392,13 +392,23 @@ final class HttpClientConnect extends HttpClient {
 		}
 
 		@Override
+		public void onResponseReceived(Connection connection) {
+			sink.success(connection);
+		}
+
+		@Override
+		public void onConfigured(Connection connection) {
+			if(HttpClientOperations.class == connection.getClass()) {
+				handler.channel((HttpClientOperations) connection);
+			}
+		}
+
+		@Override
 		public void onStateChange(Connection connection, State newState) {
 			if (newState == HttpClientState.RESPONSE_RECEIVED) {
-				sink.success(connection);
-				return;
-			}
-			if (newState == State.CONFIGURED && HttpClientOperations.class == connection.getClass()) {
-				handler.channel((HttpClientOperations) connection);
+				onResponseReceived(connection);
+			} else if (newState == State.CONFIGURED) {
+				onConfigured(connection);
 			}
 		}
 	}
@@ -419,15 +429,21 @@ final class HttpClientConnect extends HttpClient {
 		}
 
 		@Override
-		public void onStateChange(Connection connection, State newState) {
-			if (newState == ConnectionObserver.State.CONFIGURED
-					&& HttpClientOperations.class == connection.getClass()) {
+		public void onConfigured(Connection connection) {
+			if(HttpClientOperations.class == connection.getClass()) {
 				if (log.isDebugEnabled()) {
 					log.debug(format(connection.channel(), "Handler is being applied: {}"), handler);
 				}
 
 				Mono.defer(() -> Mono.fromDirect(handler.requestWithBody((HttpClientOperations) connection)))
-				    .subscribe(connection.disposeSubscriber());
+						.subscribe(connection.disposeSubscriber());
+			}
+		}
+
+		@Override
+		public void onStateChange(Connection connection, State newState) {
+			if (newState == ConnectionObserver.State.CONFIGURED) {
+				onConfigured(connection);
 			}
 		}
 	}
@@ -767,7 +783,7 @@ final class HttpClientConnect extends HttpClient {
 	@ChannelHandler.Sharable
 	static final class HttpClientInitializer
 			extends ChannelInboundHandlerAdapter
-			implements BiConsumer<ConnectionObserver, Channel>, ChannelOperations.OnSetup,
+			implements BiConsumer<HttpClientObserver, Channel>, ChannelOperations.OnSetup<HttpClientObserver>,
 			GenericFutureListener<Future<Http2StreamChannel>> {
 		final HttpClientHandler handler;
 		final DirectProcessor<Void> upgraded;
@@ -786,9 +802,9 @@ final class HttpClientConnect extends HttpClient {
 
 		@Override
 		public void channelActive(ChannelHandlerContext ctx) {
-			ChannelOperations<?, ?> ops = ChannelOperations.get(ctx.channel());
+			ChannelOperations<?, ?, ?> ops = ChannelOperations.get(ctx.channel());
 			if (ops != null) {
-				ops.listener().onStateChange(ops, ConnectionObserver.State.CONFIGURED);
+				ops.listener().onConfigured(ops);
 			}
 			ctx.fireChannelActive();
 		}
@@ -818,12 +834,12 @@ final class HttpClientConnect extends HttpClient {
 		}
 
 		@Override
-		public ChannelOperations<?, ?> create(Connection c, ConnectionObserver listener, @Nullable Object msg) {
+		public ChannelOperations<?, ?, ?> create(Connection c, HttpClientObserver listener, @Nullable Object msg) {
 			return new HttpClientOperations(c, listener, handler.cookieEncoder, handler.cookieDecoder);
 		}
 
 		@Override
-		public void accept(ConnectionObserver listener, Channel channel) {
+		public void accept(HttpClientObserver listener, Channel channel) {
 			ChannelPipeline p = channel.pipeline();
 
 			if (p.get(NettyPipeline.SslHandler) != null) {
@@ -881,9 +897,9 @@ final class HttpClientConnect extends HttpClient {
 	static final class Http2ClientInitializer extends ApplicationProtocolNegotiationHandler {
 
 		final HttpClientInitializer parent;
-		final ConnectionObserver listener;
+		final HttpClientObserver listener;
 
-		Http2ClientInitializer(ConnectionObserver listener, HttpClientInitializer parent) {
+		Http2ClientInitializer(HttpClientObserver listener, HttpClientInitializer parent) {
 			super(ApplicationProtocolNames.HTTP_1_1);
 			this.listener = listener;
 			this.parent = parent;
@@ -955,8 +971,9 @@ final class HttpClientConnect extends HttpClient {
 
 	}
 
+
 	@SuppressWarnings("rawtypes")
-	static void openStream(Channel ch, ConnectionObserver listener,
+	static void openStream(Channel ch, HttpClientObserver listener,
 			HttpClientInitializer initializer) {
 		Http2StreamChannelBootstrap http2StreamChannelBootstrap =
 				new Http2StreamChannelBootstrap(ch).handler(new ChannelInitializer() {

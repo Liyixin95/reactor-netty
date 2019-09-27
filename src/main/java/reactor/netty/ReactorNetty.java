@@ -468,6 +468,41 @@ public final class ReactorNetty {
 		}
 
 		@Override
+		public void onConnected(Connection connection) {
+			for (ConnectionObserver observer : observers) {
+				observer.onConnected(connection);
+			}
+		}
+
+		@Override
+		public void onConfigured(Connection connection) {
+			for (ConnectionObserver observer : observers) {
+				observer.onConfigured(connection);
+			}
+		}
+
+		@Override
+		public void onAcquired(Connection connection) {
+			for (ConnectionObserver observer : observers) {
+				observer.onAcquired(connection);
+			}
+		}
+
+		@Override
+		public void onReleased(Connection connection) {
+			for (ConnectionObserver observer : observers) {
+				observer.onReleased(connection);
+			}
+		}
+
+		@Override
+		public void onDisconnecting(Connection connection) {
+			for (ConnectionObserver observer : observers) {
+				observer.onDisconnecting(connection);
+			}
+		}
+
+		@Override
 		public void onStateChange(Connection connection, State newState) {
 			for (ConnectionObserver observer : observers) {
 				observer.onStateChange(connection, newState);

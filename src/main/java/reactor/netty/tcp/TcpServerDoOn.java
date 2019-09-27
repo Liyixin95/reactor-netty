@@ -46,18 +46,21 @@ final class TcpServerDoOn extends TcpServerOperator implements ConnectionObserve
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
+	public void onConnected(Connection connection) {
+		if (onBound != null) {
+			onBound.accept((DisposableServer)connection);
+		}
+		if (onUnbound != null) {
+			connection.channel()
+					.closeFuture()
+					.addListener(f -> onUnbound.accept((DisposableServer)connection));
+		}
+	}
+
+	@Override
 	public void onStateChange(Connection connection, State newState) {
 		if (newState == State.CONNECTED) {
-			if (onBound != null) {
-				onBound.accept((DisposableServer)connection);
-			}
-			if (onUnbound != null) {
-				connection.channel()
-				          .closeFuture()
-				          .addListener(f -> onUnbound.accept((DisposableServer)connection));
-			}
-			return;
+			onConnected(connection);
 		}
 	}
 

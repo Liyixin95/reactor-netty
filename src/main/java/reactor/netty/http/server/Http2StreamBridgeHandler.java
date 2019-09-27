@@ -102,7 +102,7 @@ final class Http2StreamBridgeHandler extends ChannelDuplexHandler {
 					cookieEncoder,
 					cookieDecoder);
 			ops.bind();
-			listener.onStateChange(ops, ConnectionObserver.State.CONFIGURED);
+			listener.onConfigured(ops);
 		}
 		ctx.fireChannelRead(msg);
 	}

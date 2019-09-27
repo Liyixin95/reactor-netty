@@ -40,17 +40,21 @@ final class TcpServerDoOnConnection extends TcpServerOperator implements
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
+	public void onConfigured(Connection connection) {
+		try {
+			onConnection.accept(connection);
+		}
+		catch (Throwable t) {
+			log.error(format(connection.channel(), ""), t);
+			connection.channel()
+					.close();
+		}
+	}
+
+	@Override
 	public void onStateChange(Connection connection, State newState) {
 		if (newState == State.CONFIGURED) {
-			try {
-				onConnection.accept(connection);
-			}
-			catch (Throwable t) {
-				log.error(format(connection.channel(), ""), t);
-				connection.channel()
-				          .close();
-			}
+			onConfigured(connection);
 		}
 	}
 

@@ -61,18 +61,34 @@ final class TcpClientDoOn extends TcpClientOperator implements ConnectionObserve
 	}
 
 	@Override
-	public void onStateChange(Connection connection, State newState) {
-		if (onConnected != null && newState == State.CONFIGURED) {
+	public void onConfigured(Connection connection) {
+		if(onConnected != null) {
 			onConnected.accept(connection);
-			return;
 		}
-		if (onDisconnected != null) {
-			if (newState == State.DISCONNECTING) {
-				connection.onDispose(() -> onDisconnected.accept(connection));
-			}
-			else if (newState == State.RELEASED) {
-				onDisconnected.accept(connection);
-			}
+	}
+
+	@Override
+	public void onReleased(Connection connection) {
+		if(onDisconnected != null) {
+			connection.onDispose(() -> onDisconnected.accept(connection));
+		}
+	}
+
+	@Override
+	public void onDisconnecting(Connection connection) {
+		if(onDisconnected != null) {
+			onDisconnected.accept(connection);
+		}
+	}
+
+	@Override
+	public void onStateChange(Connection connection, State newState) {
+		if(newState == State.CONFIGURED) {
+			onConfigured(connection);
+		} else if(newState == State.DISCONNECTING) {
+			onDisconnecting(connection);
+		} else if(newState == State.RELEASED) {
+			onReleased(connection);
 		}
 	}
 }
